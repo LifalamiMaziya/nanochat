@@ -43,15 +43,11 @@ stage("pretrain_d6", "python -m scripts.base_train --depth=6 --head-dim=64 --win
       "--eval-every=200 --eval-tokens=262144 --core-metric-every=-1 --sample-every=500 "
       "--num-iterations=1000 --save-every=500 --run=dummy")
 stage("base_eval", "python -m scripts.base_eval --device-batch-size=1 --split-tokens=16384 --max-per-task=16")
-# SFT diverged in pilot v2 (loss 2.5 -> NaN by step 4, fp16 + inherited LR).
-# v3 tests the two suspects separately; each variant is sampled right after.
-SFT = "python -m scripts.chat_sft --eval-every=200 --eval-tokens=262144 --num-iterations=300 --chatcore-every=-1 --run=dummy"
-SAMPLE = ("python -m scripts.chat_cli -p 'Hello! What can you do?' && "
-          "python -m scripts.chat_cli -p 'What is the capital of France?'")
-stage("sft_A_fp32_defaultlr", f"NANOCHAT_DTYPE=float32 {SFT}")
-stage("sample_A", f"NANOCHAT_DTYPE=float32 {SAMPLE}")
-stage("sft_B_fp16_lowlr", f"{SFT} --init-lr-frac=0.1")
-stage("sample_B", SAMPLE)
+# SFT NaN in v2/v3 was upstream bug #811 (oversized conversations clog the packing
+# buffer -> all-padding batches -> 0/0 loss). Fixed in scripts/chat_sft.py. Defaults again.
+stage("sft", "python -m scripts.chat_sft --eval-every=200 --eval-tokens=262144 --num-iterations=300 --chatcore-every=-1 --run=dummy")
+stage("chat_sample", "python -m scripts.chat_cli -p 'Hello! What can you do?' && "
+      "python -m scripts.chat_cli -p 'What is the capital of France?'")
 
 # keep the output small: drop raw data shards, keep tokenizer + checkpoints + logs
 shutil.rmtree(f"{BASE}/base_data", ignore_errors=True)
