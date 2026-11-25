@@ -15,6 +15,7 @@ env = dict(os.environ,
            NANOCHAT_DTYPE="float16",   # T4 has no bf16
            OMP_NUM_THREADS="1",
            CUDA_VISIBLE_DEVICES="0",   # single GPU for the pilot
+           PYTHONPATH=SRC,              # run from the repo, no package install
            WANDB_MODE="disabled")
 
 def stage(name, cmd, cwd=SRC):
@@ -34,7 +35,7 @@ def stage(name, cmd, cwd=SRC):
 
 subprocess.run("nvidia-smi", shell=True)
 stage("clone", f"git clone -q --depth 1 {REPO} {SRC}", cwd="/tmp")
-stage("install", "pip install -q torch==2.9.1 --index-url https://download.pytorch.org/whl/cu128 && pip install -q -e .")
+stage("install", "pip install -q torch==2.9.1 --index-url https://download.pytorch.org/whl/cu128 && pip install -q filelock kernels numpy psutil pyarrow rustbpe tiktoken wandb")
 stage("data", "python -m nanochat.dataset -n 4")
 stage("tokenizer", "python -m scripts.tok_train --max-chars=1000000000 && python -m scripts.tok_eval")
 stage("pretrain_d6", "python -m scripts.base_train --depth=6 --head-dim=64 --window-pattern=L "
